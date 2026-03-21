@@ -1,9 +1,5 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-
 const SUPABASE_URL = 'https://nnssdqtoemwdjaikusyb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function getStoreId() {
   try {
@@ -12,6 +8,130 @@ function getStoreId() {
   } catch (e) {
     return String(window.__store_id || 'koeln').toLowerCase();
   }
+}
+
+const SESSION_STORAGE_KEY = 'cloud_supabase_session_v1';
+
+function nowSeconds() {
+  return Math.floor(Date.now() / 1000);
+}
+
+function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || typeof s !== 'object') return null;
+    return s;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveSession(session) {
+  try {
+    if (!session) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+  } catch (e) {}
+}
+
+function getSessionUserEmail(session) {
+  if (!session) return '';
+  if (session.user && session.user.email) return String(session.user.email);
+  if (session.user && session.user.user_metadata && session.user.user_metadata.email) return String(session.user.user_metadata.email);
+  return '';
+}
+
+async function supabaseAuthRequest(pathWithQuery, bodyObj) {
+  const res = await fetch(`${SUPABASE_URL}${pathWithQuery}`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(bodyObj || {})
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = data && (data.error_description || data.msg || data.message || data.error) ? (data.error_description || data.msg || data.message || data.error) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function refreshIfNeeded(session) {
+  if (!session) return null;
+  const exp = session.expires_at;
+  if (!exp || typeof exp !== 'number') return session;
+  if (exp - nowSeconds() > 60) return session;
+  if (!session.refresh_token) return session;
+
+  const data = await supabaseAuthRequest('/auth/v1/token?grant_type=refresh_token', {
+    refresh_token: session.refresh_token
+  });
+  const next = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token || session.refresh_token,
+    token_type: data.token_type,
+    expires_in: data.expires_in,
+    expires_at: nowSeconds() + (data.expires_in || 0),
+    user: data.user || session.user
+  };
+  saveSession(next);
+  return next;
+}
+
+async function getSession() {
+  const session = loadSession();
+  if (!session) return null;
+  return await refreshIfNeeded(session);
+}
+
+async function signIn(email, password) {
+  const data = await supabaseAuthRequest('/auth/v1/token?grant_type=password', { email, password });
+  const session = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    token_type: data.token_type,
+    expires_in: data.expires_in,
+    expires_at: nowSeconds() + (data.expires_in || 0),
+    user: data.user
+  };
+  saveSession(session);
+  return session;
+}
+
+async function signOut() {
+  saveSession(null);
+}
+
+async function restRequest(method, pathWithQuery, accessToken, bodyObj) {
+  const headers = {
+    apikey: SUPABASE_ANON_KEY
+  };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (bodyObj !== undefined) headers['Content-Type'] = 'application/json';
+  if (method !== 'GET') headers.Prefer = 'return=minimal';
+
+  const res = await fetch(`${SUPABASE_URL}${pathWithQuery}`, {
+    method,
+    headers,
+    body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msg = data && (data.message || data.error || data.hint) ? (data.message || data.error || data.hint) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
+  if (method === 'GET') {
+    return await res.json().catch(() => null);
+  }
+  return null;
 }
 
 const SHARED_KEYS = [
@@ -113,18 +233,17 @@ async function uploadStore(storeId) {
   }
   const state = collectStoreState(storeId);
   const row = { store_id: storeId, state: state, updated_at: new Date().toISOString() };
-  const { error } = await supabase.from('app_state').upsert(row, { onConflict: 'store_id' });
-  if (error) throw error;
+  await restRequest('POST', '/rest/v1/app_state?on_conflict=store_id', session.access_token, row);
   return true;
 }
 
 async function downloadStore(storeId) {
   const session = await getSession();
   if (!session) throw new Error('Nicht angemeldet.');
-  const { data, error } = await supabase.from('app_state').select('state').eq('store_id', storeId).maybeSingle();
-  if (error) throw error;
-  if (data && data.state) applyStoreState(data.state);
-  return !!(data && data.state);
+  const rows = await restRequest('GET', `/rest/v1/app_state?select=state&store_id=eq.${encodeURIComponent(storeId)}&limit=1`, session.access_token);
+  const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+  if (row && row.state) applyStoreState(row.state);
+  return !!(row && row.state);
 }
 
 async function uploadAllStores() {
@@ -277,10 +396,6 @@ function bindCloudUI() {
       }
     });
   }
-
-  supabase.auth.onAuthStateChange(() => {
-    refreshCloudUI();
-  });
 }
 
 window.cloud = {
