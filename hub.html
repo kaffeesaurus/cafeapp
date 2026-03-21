@@ -28,6 +28,16 @@
     .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:#f1f3f5;border:1px solid #e9ecef;color:#2c3e50;font-weight:700;font-size:12px}
     .notice{margin-top:14px;padding:12px 14px;border-radius:14px;border:1px solid #e9ecef;background:#f8f9fa;color:#2c3e50}
     .notice strong{font-weight:800}
+    .cloud{margin-top:18px;padding:16px 16px;border-radius:16px;border:1px solid #e9ecef;background:#f8f9fa}
+    .cloud h3{margin:0 0 10px 0;font-size:16px}
+    .cloud .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .cloud input{padding:10px;border-radius:12px;border:2px solid #e6e9ef;font-size:14px;min-width:220px;flex:1}
+    .cloud .btn{padding:10px 12px;border-radius:12px;border:none;cursor:pointer;font-weight:800;background:var(--primary);color:#fff}
+    .cloud .btn.secondary{background:#2c3e50}
+    .cloud .btn.ok{background:#28a745}
+    .cloud .msg{margin-top:10px;font-weight:800;display:none}
+    .cloud .msg.err{color:#c0392b}
+    .cloud .msg.ok{color:#155724}
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px}
     .modal.open{display:flex}
     .modal-panel{background:#fff;border-radius:16px;padding:22px;max-width:420px;width:100%;box-shadow:0 18px 50px rgba(0,0,0,.35)}
@@ -136,6 +146,30 @@
         <h2>🥗 Food Waste</h2>
         <p>Bald verfügbar</p>
       </div>
+    </div>
+
+    <div class="cloud">
+      <h3>☁️ Cloud-Speicher (Supabase)</h3>
+      <div class="row" style="margin-bottom:10px">
+        <span class="pill" id="cloudStatus">Nicht angemeldet</span>
+      </div>
+      <div class="row" id="cloudLoginRow">
+        <input id="cloudEmail" type="email" autocomplete="username" placeholder="E-Mail" />
+        <input id="cloudPassword" type="password" autocomplete="current-password" placeholder="Passwort" />
+        <button class="btn" id="cloudLoginBtn">Anmelden</button>
+      </div>
+      <div class="row" id="cloudLoggedInRow" style="display:none;margin-top:10px">
+        <button class="btn secondary" id="cloudLogoutBtn">Abmelden</button>
+      </div>
+      <div class="row" id="cloudActionsRow" style="display:none;margin-top:10px">
+        <button class="btn ok" id="cloudUploadStoreBtn">⬆️ Aktuellen Standort hochladen</button>
+        <button class="btn" id="cloudDownloadStoreBtn">⬇️ Aktuellen Standort laden</button>
+        <button class="btn ok" id="cloudUploadAllBtn">⬆️ Köln+Bonn hochladen</button>
+        <button class="btn" id="cloudDownloadAllBtn">⬇️ Köln+Bonn laden</button>
+      </div>
+      <div class="msg err" id="cloudError"></div>
+      <div class="msg ok" id="cloudOk"></div>
+      <div class="small">Manuell synchronisieren: pro Standort ⬆️ Aktuellen Standort hochladen. Auf neuen Geräten ⬇️ Aktuellen Standort laden.</div>
     </div>
   </div>
 
@@ -588,5 +622,6 @@
       }
     });
   </script>
+  <script type="module" src="cloud.js"></script>
 </body>
 </html>
