@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kaffeesaurus – Standorte</title>
+  <style>
+    :root { --bg:#5b4bd8; --muted:#6c757d; --ok:#34c759; }
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;color:#2c3e50;background:linear-gradient(180deg,#6a5ae0 0%,#5b4bd8 100%) no-repeat fixed}
+    .wrap{max-width:900px;margin:40px auto;padding:28px;background:#fff;border-radius:18px;box-shadow:0 15px 40px rgba(0,0,0,.15)}
+    .head{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:24px}
+    .head h1{margin:0;font-size:32px} .head p{margin:0;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    @media (max-width:700px){.grid{grid-template-columns:1fr}}
+    .tile{border-radius:16px;padding:26px;min-height:120px;background:#f1f3f5;border:2px solid #e9ecef;box-shadow:0 10px 24px rgba(0,0,0,.06);display:flex;flex-direction:column;justify-content:center;transition:transform .15s ease, box-shadow .15s ease, background .15s}
+    .tile h2{margin:0 0 6px 0;font-size:22px}
+    .tile p{margin:0;color:var(--muted)}
+    .tile.link{cursor:pointer;background:linear-gradient(180deg,#4cd964 0%,#34c759 100%);color:#fff;border:none}
+    .tile.link p{color:#eefcef} .tile.link:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(52,199,89,.35)}
+    .tile.disabled{opacity:.6;cursor:not-allowed}
+    .footer{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <h1>☕ Kaffeesaurus</h1>
+      <p>Wähle deinen Standort</p>
+    </div>
+
+    <div class="grid">
+      <div class="tile link" onclick="setStore('koeln'); openHub('hub.html')" title="Köln öffnen">
+        <h2>🏙️ Köln</h2>
+        <p>Öffnen</p>
+      </div>
+
+      <div class="tile link" onclick="setStore('bonn'); openHub('hub.html')" title="Bonn öffnen">
+        <h2>🏙️ Bonn</h2>
+        <p>Öffnen</p>
+      </div>
+    </div>
+
+    <div class="footer"></div>
+  </div>
+
+  <script>
+    function setStore(s){ try{ localStorage.setItem('current_store', String(s).toLowerCase()); }catch(e){} }
+    function openHub(rel){
+      var s=null;
+      try{s=localStorage.getItem('current_store');}catch(e){}
+      s=(s||'koeln').toLowerCase();
+      if(rel && rel.indexOf('?')===-1 && rel.indexOf('#')===-1){
+        window.location.href = rel + '?store=' + encodeURIComponent(s);
+      }else{
+        window.location.href = rel;
+      }
+    }
+  </script>
+</body>
+</html>

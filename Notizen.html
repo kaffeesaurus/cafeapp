@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Notizen</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto; margin:0; background:#f5f7fb; color:#2c3e50}
+    .wrap{max-width:900px;margin:24px auto;padding:20px;background:#fff;border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.08)}
+    .header a{color:#3498db;text-decoration:none;font-weight:600}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .group{flex:1;min-width:220px;display:flex;flex-direction:column}
+    input,select,textarea{padding:10px;border:2px solid #e6e9ef;border-radius:8px;font-size:14px}
+    textarea{min-height:120px}
+    .btn{background:#3498db;color:#fff;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}
+    .btn.danger{background:#dc3545}
+    .card{border:1px solid #e6e9ef;border-radius:10px;padding:12px;margin:8px 0;background:#fff}
+    .muted{color:#6c757d;font-size:12px}
+    .list{margin-top:8px}
+    .filters{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <a href="hub.html">🏠 Zurück zum Hub</a>
+      <h1 style="margin:8px 0 16px">📝 Notizen</h1>
+    </div>
+
+    <div>
+      <div class="row">
+        <div class="group">
+          <label for="noteDate">Datum</label>
+          <input type="date" id="noteDate">
+        </div>
+        <div class="group">
+          <label for="noteEmployee">Mitarbeiter</label>
+          <select id="noteEmployee"><option value="">Kein Mitarbeiter</option></select>
+        </div>
+      </div>
+      <div class="group" style="margin-top:10px">
+        <label for="noteTitle">Titel</label>
+        <input id="noteTitle" placeholder="Kurzer Titel">
+      </div>
+      <div class="group" style="margin-top:10px">
+        <label for="noteText">Notiz</label>
+        <textarea id="noteText" placeholder="Text hier eingeben"></textarea>
+      </div>
+      <div style="margin-top:12px">
+        <button class="btn" id="saveBtn">Speichern</button>
+      </div>
+      <div id="msg" class="muted" style="margin-top:8px"></div>
+    </div>
+
+    <hr style="margin:18px 0;border:none;border-top:1px solid #e6e9ef">
+
+    <div>
+      <div class="filters">
+        <select id="filterEmployee"><option value="">Alle Mitarbeiter</option></select>
+        <input id="filterSearch" placeholder="Suche im Titel/Text">
+      </div>
+      <div id="notesList" class="list"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      function getStoreFromURL(){
+        try{
+          const params=new URLSearchParams(location.search);
+          let s=params.get('store');
+          if(!s && location.hash){
+            const m=location.hash.match(/store=([a-z0-9_-]+)/i) || location.hash.match(/^#([a-z0-9_-]+)/i);
+            if(m) s=m[1];
+          }
+          s = s ? s.toLowerCase() : null;
+          if (s && !/^[a-z0-9_-]+$/.test(s)) s = null;
+          return s;
+        }catch(e){return null;}
+      }
+      const urlStore=getStoreFromURL();
+      let storedRaw=null;
+      try{storedRaw=sessionStorage.getItem('current_store') || localStorage.getItem('current_store');}catch(e){}
+      const hadStored=!!storedRaw;
+      if(urlStore){
+        try{
+          localStorage.setItem('current_store', urlStore);
+          sessionStorage.setItem('current_store', urlStore);
+        }catch(e){}
+      }
+      const STORE=String(urlStore || storedRaw || 'koeln').toLowerCase();
+      if(urlStore || hadStored){
+        try{sessionStorage.setItem('current_store', STORE);}catch(e){}
+      }
+      const storeDisplayMap={koeln:'Köln',bonn:'Bonn'};
+      const storeDisplay=storeDisplayMap[STORE] || (STORE ? STORE.replace(/[-_]+/g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}) : 'Köln');
+      document.title = 'Notizen – ' + storeDisplay;
+      const origGet=localStorage.getItem.bind(localStorage);
+      const origSet=localStorage.setItem.bind(localStorage);
+      const origRem=localStorage.removeItem.bind(localStorage);
+      function mapKey(k){
+        if(k && k.startsWith('koeln_')) return STORE==='koeln'? k : k.replace(/^koeln_/, STORE+'_');
+        return k;
+      }
+      localStorage.getItem=function(k){ return origGet(mapKey(k)); };
+      localStorage.setItem=function(k,v){ return origSet(mapKey(k), v); };
+      localStorage.removeItem=function(k){ return origRem(mapKey(k)); };
+      window.__store_id = STORE;
+      document.addEventListener('DOMContentLoaded',()=>{
+        const back=document.querySelector('.header a');
+        if(back) back.setAttribute('href','hub.html?store='+encodeURIComponent(STORE));
+      });
+    })();
+
+    function todayLocal(){const d=new Date();return d.toISOString().slice(0,10)}
+    function getEmployees(){
+      try{const raw=localStorage.getItem('koeln_employees'); if(!raw) return [];
+        const obj=JSON.parse(raw); return Object.entries(obj).map(([id,e])=>({id,name:e.name||id,active:e.active!==false}))}
+      catch(e){return []}
+    }
+    function loadEmployees(){
+      const all=getEmployees();
+      const sel=document.getElementById('noteEmployee');
+      const fil=document.getElementById('filterEmployee');
+      [sel,fil].forEach(s=>{if(!s) return; const keepFirst=s.options.length>0; s.innerHTML= keepFirst? s.innerHTML : '<option value=\"\">Alle Mitarbeiter</option>'});
+      all.forEach(e=>{
+        const o1=document.createElement('option'); o1.value=e.id; o1.textContent=e.name; document.getElementById('noteEmployee').appendChild(o1);
+        const o2=document.createElement('option'); o2.value=e.id; o2.textContent=e.name; document.getElementById('filterEmployee').appendChild(o2);
+      });
+    }
+    function readNotes(){
+      try{const raw=localStorage.getItem('koeln_notes'); return raw? JSON.parse(raw): []}catch(e){return []}
+    }
+    function writeNotes(arr){localStorage.setItem('koeln_notes', JSON.stringify(arr))}
+    function employeeNameById(id){const e=getEmployees().find(x=>x.id===id); return e? e.name : ''}
+    function renderNotes(){
+      const list=document.getElementById('notesList'); const emp=document.getElementById('filterEmployee').value;
+      const q=(document.getElementById('filterSearch').value||'').toLowerCase();
+      const items=readNotes().sort((a,b)=>b.created-a.created).filter(n=>{
+        if(emp && n.employeeId!==emp) return false;
+        if(q && !((n.title||'').toLowerCase().includes(q) || (n.text||'').toLowerCase().includes(q))) return false;
+        return true;
+      });
+      if(items.length===0){list.innerHTML='<div class=\"muted\">Keine Notizen</div>'; return;}
+      list.innerHTML='';
+      items.forEach(n=>{
+        const card=document.createElement('div'); card.className='card';
+        const empName=n.employeeId? employeeNameById(n.employeeId) : '';
+        card.innerHTML =
+          `<div style="display:flex;justify-content:space-between;align-items:center">
+             <div><strong>${n.title?escapeHtml(n.title):'(Ohne Titel)'}</strong></div>
+             <button class="btn danger" data-id="${n.id}">Löschen</button>
+           </div>
+           <div class="muted" style="margin-top:4px">${n.date} ${empName? '· '+escapeHtml(empName): ''}</div>
+           <div style="margin-top:8px;white-space:pre-wrap">${escapeHtml(n.text||'')}</div>`;
+        card.querySelector('button').onclick=()=>{deleteNote(n.id)};
+        list.appendChild(card);
+      });
+    }
+    function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]))}
+    function saveNote(){
+      const date=document.getElementById('noteDate').value||todayLocal();
+      const employeeId=document.getElementById('noteEmployee').value||'';
+      const title=document.getElementById('noteTitle').value.trim();
+      const text=document.getElementById('noteText').value.trim();
+      const notes=readNotes();
+      const id=`${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+      notes.push({id,date,employeeId,title,text,created:Date.now()});
+      writeNotes(notes);
+      document.getElementById('noteTitle').value='';
+      document.getElementById('noteText').value='';
+      document.getElementById('msg').textContent='Gespeichert';
+      setTimeout(()=>document.getElementById('msg').textContent='',1200);
+      renderNotes();
+    }
+    function deleteNote(id){
+      const notes=readNotes().filter(n=>n.id!==id); writeNotes(notes); renderNotes();
+    }
+    document.addEventListener('DOMContentLoaded',()=>{
+      document.getElementById('noteDate').value=todayLocal();
+      loadEmployees();
+      document.getElementById('saveBtn').addEventListener('click',saveNote);
+      document.getElementById('filterEmployee').addEventListener('change',renderNotes);
+      document.getElementById('filterSearch').addEventListener('input',renderNotes);
+      renderNotes();
+    });
+  </script>
+</body>
+</html>
