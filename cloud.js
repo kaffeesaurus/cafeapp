@@ -208,23 +208,6 @@ function applyStoreState(state) {
   });
 }
 
-async function signIn(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data;
-}
-
-async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
-}
-
-async function getSession() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  return data.session;
-}
-
 async function uploadStore(storeId) {
   const session = await getSession();
   if (!session) throw new Error('Nicht angemeldet.');
