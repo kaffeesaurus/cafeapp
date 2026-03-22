@@ -1,3 +1,4 @@
+(function () {
 const SUPABASE_URL = 'https://nnssdqtoemwdjaikusyb.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc';
 
@@ -419,3 +420,4 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindCloudUI();
   await refreshCloudUI();
 });
+})();
