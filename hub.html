@@ -161,19 +161,13 @@
       <div class="row" id="cloudLoggedInRow" style="display:none;margin-top:10px">
         <button class="btn secondary" id="cloudLogoutBtn">Abmelden</button>
       </div>
-      <div class="row" id="cloudActionsRow" style="display:none;margin-top:10px">
-        <button class="btn ok" id="cloudUploadStoreBtn">⬆️ Aktuellen Standort hochladen</button>
-        <button class="btn" id="cloudDownloadStoreBtn">⬇️ Aktuellen Standort laden</button>
-        <button class="btn ok" id="cloudUploadAllBtn">⬆️ Köln+Bonn hochladen</button>
-        <button class="btn" id="cloudDownloadAllBtn">⬇️ Köln+Bonn laden</button>
-      </div>
       <div class="msg err" id="cloudError"></div>
       <div class="msg ok" id="cloudOk"></div>
-      <div class="small">Manuell synchronisieren: pro Standort ⬆️ Aktuellen Standort hochladen. Auf neuen Geräten ⬇️ Aktuellen Standort laden.</div>
+      <div class="small">Nach Anmeldung lädt die App automatisch die Cloud-Daten und speichert Änderungen automatisch.</div>
     </div>
   </div>
 
-  <script src="supabase-sync.js?v=2"></script>
+  <script src="supabase-sync.js?v=3"></script>
   <script>
     (function(){
       function getStoreFromURL(){
@@ -623,6 +617,6 @@
       }
     });
   </script>
-  <script src="cloud.js?v=5"></script>
+  <script src="cloud.js?v=6"></script>
 </body>
 </html>

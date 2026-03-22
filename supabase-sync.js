@@ -336,7 +336,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
     localStorage.getItem = function (k) {
       const key = String(k);
-      if (keySet.has(key)) return virtual.has(key) ? virtual.get(key) : null;
+      if (keySet.has(key)) return virtual.has(key) ? virtual.get(key) : origGet(key);
       return origGet(key);
     };
     localStorage.setItem = function (k, v) {
