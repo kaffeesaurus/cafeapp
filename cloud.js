@@ -114,7 +114,9 @@ async function restRequest(method, pathWithQuery, accessToken, bodyObj) {
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (bodyObj !== undefined) headers['Content-Type'] = 'application/json';
-  if (method !== 'GET') headers.Prefer = 'return=minimal';
+  if (method !== 'GET') {
+    headers.Prefer = 'return=minimal';
+  }
 
   const res = await fetch(`${SUPABASE_URL}${pathWithQuery}`, {
     method,
@@ -132,6 +134,26 @@ async function restRequest(method, pathWithQuery, accessToken, bodyObj) {
     return await res.json().catch(() => null);
   }
   return null;
+}
+
+async function replaceAppStateRow(storeId, state) {
+  const session = await getSession();
+  if (!session) throw new Error('Nicht angemeldet.');
+
+  const encodedStoreId = encodeURIComponent(storeId);
+  await restRequest('DELETE', `/rest/v1/app_state?store_id=eq.${encodedStoreId}`, session.access_token);
+
+  const row = { store_id: storeId, state: state, updated_at: new Date().toISOString() };
+  try {
+    await restRequest('POST', '/rest/v1/app_state', session.access_token, row);
+  } catch (e) {
+    if (String(e && e.message || '').toLowerCase().includes('duplicate')) {
+      await restRequest('PATCH', `/rest/v1/app_state?store_id=eq.${encodedStoreId}`, session.access_token, row);
+      return true;
+    }
+    throw e;
+  }
+  return true;
 }
 
 const SHARED_KEYS = [
@@ -215,8 +237,7 @@ async function uploadStore(storeId) {
     throw new Error(`Keine lokalen Daten für ${storeId} gefunden. Upload abgebrochen.`);
   }
   const state = collectStoreState(storeId);
-  const row = { store_id: storeId, state: state, updated_at: new Date().toISOString() };
-  await restRequest('POST', '/rest/v1/app_state?on_conflict=store_id', session.access_token, row);
+  await replaceAppStateRow(storeId, state);
   return true;
 }
 
@@ -265,7 +286,7 @@ async function refreshCloudUI() {
     session = await getSession();
   } catch (e) {}
   const isLoggedIn = !!session;
-  setText('cloudStatus', isLoggedIn ? `Angemeldet: ${session.user?.email || ''}` : 'Nicht angemeldet');
+  setText('cloudStatus', isLoggedIn ? `Angemeldet: ${getSessionUserEmail(session)}` : 'Nicht angemeldet');
   setVisible('cloudLoginRow', !isLoggedIn);
   setVisible('cloudLoggedInRow', isLoggedIn);
   setVisible('cloudActionsRow', isLoggedIn);
@@ -332,8 +353,9 @@ function bindCloudUI() {
       setOk('');
       try {
         const storeId = getStoreId();
+        if (!confirm(`Cloud-Daten für "${storeId}" werden komplett durch lokale Daten ersetzt. Fortfahren?`)) return;
         await uploadStore(storeId);
-        setOk(`Hochgeladen: ${storeId}.`);
+        setOk(`Cloud ersetzt: ${storeId}.`);
       } catch (e) {
         setErr(e && e.message ? e.message : 'Upload fehlgeschlagen.');
       }
@@ -359,8 +381,9 @@ function bindCloudUI() {
       setErr('');
       setOk('');
       try {
+        if (!confirm('Cloud-Daten werden komplett durch lokale Daten ersetzt (nur wo lokale Daten vorhanden sind). Fortfahren?')) return;
         await uploadAllStores();
-        setOk('Hochgeladen: Köln und Bonn.');
+        setOk('Cloud ersetzt: Köln und Bonn.');
       } catch (e) {
         setErr(e && e.message ? e.message : 'Upload fehlgeschlagen.');
       }
