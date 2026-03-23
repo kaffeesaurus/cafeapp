@@ -19,7 +19,11 @@ function nowSeconds() {
 
 function loadSession() {
   try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    let raw = null;
+    try {
+      raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    } catch (e) {}
+    if (!raw) raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || typeof s !== 'object') return null;
@@ -32,10 +36,17 @@ function loadSession() {
 function saveSession(session) {
   try {
     if (!session) {
+      try {
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      } catch (e) {}
       localStorage.removeItem(SESSION_STORAGE_KEY);
       return;
     }
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    const raw = JSON.stringify(session);
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, raw);
+    } catch (e) {}
+    localStorage.setItem(SESSION_STORAGE_KEY, raw);
   } catch (e) {}
 }
 
