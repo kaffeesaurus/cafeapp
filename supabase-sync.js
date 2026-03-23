@@ -133,6 +133,38 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     return next && next.access_token ? next.access_token : null;
   }
 
+  async function getAccessTokenAsync() {
+    const s = loadSession();
+    if (!s || !s.access_token) return null;
+    const exp = s.expires_at;
+    if (typeof exp === 'number' && exp - nowSeconds() > 60) return s.access_token;
+    if (!s.refresh_token) return s.access_token;
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: s.refresh_token }),
+        cache: 'no-store'
+      });
+      if (!res.ok) return s.access_token;
+      const data = await res.json().catch(() => null);
+      if (!data || !data.access_token) return s.access_token;
+      const next = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || s.refresh_token,
+        token_type: data.token_type,
+        expires_in: data.expires_in,
+        expires_at: nowSeconds() + (data.expires_in || 0),
+        user: data.user || s.user
+      };
+      saveSession(next);
+      return next.access_token;
+    } catch (e) {
+      return s.access_token;
+    }
+  }
+
   function getStateFromCloudSync(storeId, accessToken) {
     const encoded = encodeURIComponent(storeId);
     const xhr = new XMLHttpRequest();
@@ -146,6 +178,23 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       throw new Error(msg || `HTTP ${xhr.status}`);
     }
     const rows = JSON.parse(xhr.responseText || '[]');
+    const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+    return row && row.state ? row.state : null;
+  }
+
+  async function getStateFromCloudAsync(storeId, accessToken) {
+    const encoded = encodeURIComponent(storeId);
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_state?select=state&store_id=eq.${encoded}&limit=1`, {
+      method: 'GET',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store'
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const msg = (await res.text().catch(() => '')).trim();
+      throw new Error(msg || `HTTP ${res.status}`);
+    }
+    const rows = await res.json().catch(() => []);
     const row = Array.isArray(rows) && rows.length ? rows[0] : null;
     return row && row.state ? row.state : null;
   }
@@ -292,6 +341,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       }, 1200);
     }
 
+    let didSyncLoad = false;
     muted = true;
     try {
       const state = getStateFromCloudSync(storeId, accessToken);
@@ -303,12 +353,54 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
           virtual.delete(k);
         }
       });
+      didSyncLoad = true;
     } catch (e) {
       try {
         console.error(e);
       } catch (e2) {}
     } finally {
       muted = false;
+    }
+
+    const hasAnyCloudData = virtual.size > 0;
+    if ((!didSyncLoad || !hasAnyCloudData) && !isOnHubPage()) {
+      const page = (location.pathname.split('/').pop() || '').toLowerCase();
+      const flagKey = `cloud_autoreload_${storeId}_${page}`;
+      let alreadyTried = false;
+      try {
+        alreadyTried = sessionStorage.getItem(flagKey) === '1';
+      } catch (e) {}
+
+      if (!alreadyTried) {
+        Promise.resolve().then(async () => {
+          try {
+            const token = await getAccessTokenAsync();
+            if (!token) return;
+            const state = await getStateFromCloudAsync(storeId, token);
+            const keysObj = state && state.keys && typeof state.keys === 'object' ? state.keys : {};
+            const keyCount = keysObj ? Object.keys(keysObj).length : 0;
+            if (!keyCount) return;
+
+            muted = true;
+            try {
+              keySetArr.forEach(k => {
+                if (Object.prototype.hasOwnProperty.call(keysObj, k)) {
+                  virtual.set(k, String(keysObj[k]));
+                } else {
+                  virtual.delete(k);
+                }
+              });
+            } finally {
+              muted = false;
+            }
+
+            try {
+              sessionStorage.setItem(flagKey, '1');
+            } catch (e) {}
+            location.reload();
+          } catch (e) {}
+        });
+      }
     }
 
     function combinedKeys() {
