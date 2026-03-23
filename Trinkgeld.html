@@ -1419,6 +1419,13 @@
             window.__store_id = STORE;
             window.__store_hasUrl = !!urlStore;
             window.__store_hadStored = hadStored;
+            try{
+                window.addEventListener('pageshow', function(e){
+                    try{
+                        if(e && e.persisted){ location.reload(); }
+                    }catch(err){}
+                });
+            }catch(e){}
         })();
         (function(){
             var s=(localStorage.getItem('current_store')||'koeln').toLowerCase();

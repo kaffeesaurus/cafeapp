@@ -107,6 +107,13 @@
       localStorage.setItem=function(k,v){ return origSet(mapKey(k), v); };
       localStorage.removeItem=function(k){ return origRem(mapKey(k)); };
       window.__store_id = STORE;
+      try{
+        window.addEventListener('pageshow', function(e){
+          try{
+            if(e && e.persisted){ location.reload(); }
+          }catch(err){}
+        });
+      }catch(e){}
       document.addEventListener('DOMContentLoaded',()=>{
         const back=document.querySelector('.header a');
         if(back) back.setAttribute('href','hub.html?store='+encodeURIComponent(STORE));
