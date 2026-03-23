@@ -167,7 +167,7 @@
     </div>
   </div>
 
-  <script src="supabase-sync.js?v=5"></script>
+  <script src="supabase-sync.js?v=6"></script>
   <script>
     (function(){
       function getStoreFromURL(){
@@ -488,7 +488,7 @@
 
     function openApp(file){
       var storeId=getStoreId();
-      var url=file + '?store=' + encodeURIComponent(storeId);
+      var url=file + '?store=' + encodeURIComponent(storeId) + '&nav=' + Date.now();
       if(String(file||'').toLowerCase()==='trinkgeld.html'){
         var stored=getGateStoredValue(storeId);
         if(stored && !isAdminUnlocked(storeId)){

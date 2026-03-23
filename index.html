@@ -50,7 +50,7 @@
       try{s=localStorage.getItem('current_store');}catch(e){}
       s=(s||'koeln').toLowerCase();
       if(rel && rel.indexOf('?')===-1 && rel.indexOf('#')===-1){
-        window.location.href = rel + '?store=' + encodeURIComponent(s);
+        window.location.href = rel + '?store=' + encodeURIComponent(s) + '&nav=' + Date.now();
       }else{
         window.location.href = rel;
       }

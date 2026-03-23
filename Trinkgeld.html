@@ -1361,7 +1361,7 @@
         </div>
     </div>
 
-    <script src="supabase-sync.js?v=5"></script>
+    <script src="supabase-sync.js?v=6"></script>
     <script>
         (function(){
             function getStoreFromURL(){
@@ -1428,17 +1428,17 @@
             }catch(e){}
         })();
         (function(){
-            var s=(localStorage.getItem('current_store')||'koeln').toLowerCase();
+            var s=String(window.__store_id || 'koeln').toLowerCase();
             var has=localStorage.getItem(s+'_gate_hash');
             var ok=sessionStorage.getItem('gate_unlocked_'+s)==='1';
             if(has && !ok){
-                var q='hub.html?store='+encodeURIComponent(s);
+                var q='hub.html?store='+encodeURIComponent(s)+'&resume=trinkgeld';
                 location.replace(q);
             }
         })();
         document.addEventListener('DOMContentLoaded', function(){
             var hubLink = document.querySelector('.header a');
-            if(hubLink){ hubLink.setAttribute('href', 'hub.html'); }
+            if(hubLink){ hubLink.setAttribute('href', 'hub.html?store=' + encodeURIComponent(String(window.__store_id || 'koeln').toLowerCase())); }
             var storeSelect = document.getElementById('storeSelect');
             if(storeSelect){
                 var s = (sessionStorage.getItem('current_store') || localStorage.getItem('current_store') || 'koeln').toLowerCase();
