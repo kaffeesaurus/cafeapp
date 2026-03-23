@@ -260,6 +260,12 @@
     }
 
     function getStoreId(){
+      try{
+        var params=new URLSearchParams(location.search);
+        var u=params.get('store');
+        u=u? String(u).toLowerCase(): null;
+        if(u && /^[a-z0-9_-]+$/.test(u)) return u;
+      }catch(e){}
       var s=null;
       try{s=sessionStorage.getItem('current_store') || localStorage.getItem('current_store');}catch(e){}
       return String(window.__store_id || s || 'koeln').toLowerCase();
