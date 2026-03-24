@@ -176,12 +176,16 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     }
   }
 
-  function getStateFromCloudSync(storeId, accessToken) {
+  function getStateFromCloudSync(storeId) {
     const encoded = encodeURIComponent(storeId);
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `${SUPABASE_URL}/rest/v1/app_state?select=state&store_id=eq.${encoded}&limit=1`, false);
+    const url = `${SUPABASE_URL}/rest/v1/app_state?select=state&store_id=eq.${encoded}&limit=1&_cb=${Date.now()}`;
+    xhr.open('GET', url, false);
     xhr.setRequestHeader('apikey', SUPABASE_ANON_KEY);
-    xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+    // Removed Authorization header to allow anonymous access
+    xhr.setRequestHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    xhr.setRequestHeader('Pragma', 'no-cache');
+    xhr.setRequestHeader('Expires', '0');
     xhr.send(null);
     if (xhr.status === 404) return null;
     if (xhr.status < 200 || xhr.status >= 300) {
@@ -193,11 +197,18 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     return row && row.state ? row.state : null;
   }
 
-  async function getStateFromCloudAsync(storeId, accessToken) {
+  async function getStateFromCloudAsync(storeId) {
     const encoded = encodeURIComponent(storeId);
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/app_state?select=state&store_id=eq.${encoded}&limit=1`, {
+    const url = `${SUPABASE_URL}/rest/v1/app_state?select=state&store_id=eq.${encoded}&limit=1&_cb=${Date.now()}`;
+    const res = await fetch(url, {
       method: 'GET',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        // Removed Authorization header
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
       cache: 'no-store'
     });
     if (res.status === 404) return null;
@@ -222,11 +233,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     return { version: 1, storeId, keys: values, exportedAt: new Date().toISOString() };
   }
 
-  async function replaceAppStateRow(storeId, accessToken, state) {
+  async function replaceAppStateRow(storeId, state) {
     const encoded = encodeURIComponent(storeId);
     await fetch(`${SUPABASE_URL}/rest/v1/app_state?store_id=eq.${encoded}`, {
       method: 'DELETE',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` }
+      headers: { apikey: SUPABASE_ANON_KEY }
     });
 
     const row = { store_id: storeId, state: state, updated_at: new Date().toISOString() };
@@ -234,7 +245,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
         Prefer: 'return=minimal'
       },
@@ -249,7 +259,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         method: 'PATCH',
         headers: {
           apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           Prefer: 'return=minimal'
         },
@@ -302,17 +311,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     } catch (e) {}
 
     const storeId = getStoreId();
-    const accessToken = getAccessTokenSync();
-    if (!accessToken) {
-      if (!isOnHubPage()) {
-        try {
-          alert('Bitte im Hub unter "Cloud-Speicher" anmelden.');
-        } catch (e) {}
-        location.replace(`hub.html?store=${encodeURIComponent(storeId)}`);
-      }
-      return;
-    }
-
+    window.__cloud_sync_store = storeId;
     const keySetArr = storeKeySetFor(storeId);
     const keySet = new Set(keySetArr);
     const virtual = new Map();
@@ -345,10 +344,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       uploading = true;
       pending = false;
       try {
-        const token = getAccessTokenSync();
-        if (!token) return;
         const state = collectStoreState(storeId);
-        await replaceAppStateRow(storeId, token, state);
+        await replaceAppStateRow(storeId, state);
       } catch (e) {
         try {
           console.error(e);
@@ -370,13 +367,15 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     let didSyncLoad = false;
     muted = true;
     try {
-      const state = getStateFromCloudSync(storeId, accessToken);
+      const state = getStateFromCloudSync(storeId);
       const keysObj = state && state.keys && typeof state.keys === 'object' ? state.keys : {};
       keySetArr.forEach(k => {
         if (Object.prototype.hasOwnProperty.call(keysObj, k)) {
           virtual.set(k, String(keysObj[k]));
+          try { origSet(k, String(keysObj[k])); } catch(e){}
         } else {
           virtual.delete(k);
+          try { origRem(k); } catch(e){}
         }
       });
       didSyncLoad = true;
@@ -400,9 +399,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       if (!alreadyTried) {
         Promise.resolve().then(async () => {
           try {
-            const token = await getAccessTokenAsync();
-            if (!token) return;
-            const state = await getStateFromCloudAsync(storeId, token);
+            const state = await getStateFromCloudAsync(storeId);
             const keysObj = state && state.keys && typeof state.keys === 'object' ? state.keys : {};
             const keyCount = keysObj ? Object.keys(keysObj).length : 0;
             if (!keyCount) return;
@@ -412,8 +409,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
               keySetArr.forEach(k => {
                 if (Object.prototype.hasOwnProperty.call(keysObj, k)) {
                   virtual.set(k, String(keysObj[k]));
+                  try { origSet(k, String(keysObj[k])); } catch(e){}
                 } else {
                   virtual.delete(k);
+                  try { origRem(k); } catch(e){}
                 }
               });
             } finally {
@@ -461,6 +460,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       const key = String(k);
       if (keySet.has(key)) {
         virtual.set(key, String(v));
+        try { origSet(key, String(v)); } catch(e){}
         if (!muted) scheduleUpload();
         return;
       }
@@ -470,6 +470,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       const key = String(k);
       if (keySet.has(key)) {
         virtual.delete(key);
+        try { origRem(key); } catch(e){}
         if (!muted) scheduleUpload();
         return;
       }
