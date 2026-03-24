@@ -120,21 +120,32 @@ async function signOut() {
   saveSession(null);
 }
 
-async function restRequest(method, path, bodyObj = null) {
-  const url = `${SUPABASE_URL}${path}`;
+async function restRequest(method, pathWithQuery, accessToken, bodyObj) {
   const headers = {
-    apikey: SUPABASE_ANON_KEY,
-    'Content-Type': 'application/json'
+    apikey: SUPABASE_ANON_KEY
   };
-  const opts = { method, headers };
-  if (bodyObj) opts.body = JSON.stringify(bodyObj);
-  const res = await fetch(url, opts);
-  if (!res.ok) {
-    const msg = await res.text().catch(() => '');
-    throw new Error(msg || `HTTP ${res.status}`);
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (bodyObj !== undefined) headers['Content-Type'] = 'application/json';
+  if (method !== 'GET') {
+    headers.Prefer = 'return=minimal';
   }
-  const text = await res.text().catch(() => '');
-  return text ? JSON.parse(text) : null;
+
+  const res = await fetch(`${SUPABASE_URL}${pathWithQuery}`, {
+    method,
+    headers,
+    body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const msg = data && (data.message || data.error || data.hint) ? (data.message || data.error || data.hint) : `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+
+  if (method === 'GET') {
+    return await res.json().catch(() => null);
+  }
+  return null;
 }
 
 async function replaceAppStateRow(storeId, state) {
@@ -232,6 +243,8 @@ function applyStoreState(state) {
 }
 
 async function uploadStore(storeId) {
+  const session = await getSession();
+  if (!session) throw new Error('Nicht angemeldet.');
   if (!hasLocalDataForStore(storeId)) {
     throw new Error(`Keine lokalen Daten für ${storeId} gefunden. Upload abgebrochen.`);
   }
@@ -241,7 +254,9 @@ async function uploadStore(storeId) {
 }
 
 async function downloadStore(storeId) {
-  const rows = await restRequest('GET', `/rest/v1/app_state?select=state&store_id=eq.${encodeURIComponent(storeId)}&limit=1`);
+  const session = await getSession();
+  if (!session) throw new Error('Nicht angemeldet.');
+  const rows = await restRequest('GET', `/rest/v1/app_state?select=state&store_id=eq.${encodeURIComponent(storeId)}&limit=1`, session.access_token);
   const row = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
   if (row && row.state) applyStoreState(row.state);
   return !!(row && row.state);
