@@ -503,6 +503,82 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
     enableSyncPermanently();
     window.__cloud_sync_store = storeId;
+
+    (function(){
+      const workKey = storeId==='koeln'?'workEntries':`${storeId}_workEntries`;
+      function parseWork(){ try{ return JSON.parse(localStorage.getItem(workKey)||'[]'); }catch(e){ return []; } }
+      function mkKey(e){ const n=String(e.name||e.employee||'').trim(); const d=String(e.workDate||'').trim(); const s=String(e.startTime||'').trim(); const t=String(e.endTime||'').trim(); return `${storeId}|${n}|${d}|${s}|${t}`; }
+      async function upsertShift(e){
+        const token=getAccessTokenSync(); if(!token) return;
+        const row={ store_id: storeId, employee_name: String(e.name||e.employee||''), work_date: e.workDate||null, start_time: e.startTime||null, end_time: e.EndTime||e.endTime||null, department: e.department||null, client_key: mkKey(e), updated_at: new Date().toISOString() };
+        await fetch(`${SUPABASE_URL}/rest/v1/shifts?on_conflict=store_id,employee_name,work_date,start_time,end_time`,{ method:'POST', headers:{ apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([row]) }).catch(()=>{});
+      }
+      function mergeRows(rows){
+        if(!Array.isArray(rows)||!rows.length) return false;
+        const list=parseWork();
+        const idx=new Map(list.map((x,i)=>[mkKey(x),i]));
+        let changed=false;
+        for(let i=0;i<rows.length;i++){
+          const r=rows[i];
+          const e={ workDate:r.work_date, startTime:r.start_time, endTime:r.end_time, department:r.department||'service', name:r.employee_name, timestamp:r.client_key||String(Date.now()) };
+          const k=mkKey(e);
+          if(idx.has(k)) continue;
+          idx.set(k,list.length);
+          list.push(e);
+          changed=true;
+        }
+        if(changed){
+          try{ localStorage.setItem(workKey, JSON.stringify(list)); }catch(e){}
+        }
+        return changed;
+      }
+      let lastIso=new Date(0).toISOString();
+      const known=new Set(parseWork().map(mkKey));
+      async function pull(){
+        const token=getAccessTokenSync(); if(!token) return;
+        const q=`/rest/v1/shifts?select=store_id,employee_name,work_date,start_time,end_time,department,client_key,updated_at&store_id=eq.${encodeURIComponent(storeId)}&order=updated_at.asc&updated_at=gt.${encodeURIComponent(lastIso)}`;
+        const res=await fetch(SUPABASE_URL+q,{ headers:{ apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${token}` }, cache:'no-store' }).catch(()=>null);
+        if(!res||!res.ok) return;
+        const rows=await res.json().catch(()=>[]);
+        if(mergeRows(rows)){
+          if(!window.__cloud_reload_timer){
+            window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },500);
+          }
+        }
+        const last=rows.length? rows[rows.length-1].updated_at : lastIso;
+        if(last) lastIso=last;
+      }
+      function scan(){
+        const list=parseWork();
+        for(let i=0;i<list.length;i++){
+          const e=list[i];
+          const k=mkKey(e);
+          if(!known.has(k)){
+            known.add(k);
+            Promise.resolve().then(()=>upsertShift(e));
+          }
+        }
+      }
+      setTimeout(()=>{ pull(); scan(); }, 500);
+      setInterval(()=>{ pull(); scan(); }, 3000);
+
+      try{
+        if(window.supabase && window.supabase.createClient){
+          const token=getAccessTokenSync();
+          const client=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ persistSession:false } });
+          if(client && client.realtime && typeof client.realtime.setAuth==='function' && token){ client.realtime.setAuth(token); }
+          const ch=client.channel(`shifts_${storeId}`);
+          ch.on('postgres_changes', { event:'*', schema:'public', table:'shifts', filter:`store_id=eq.${storeId}` }, (payload)=>{
+            const row=payload.new||payload.old||null; if(!row) return;
+            if(mergeRows([row])){
+              if(!window.__cloud_reload_timer){
+                window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },300);
+              }
+            }
+          }).subscribe();
+        }
+      }catch(e){}
+    })();
   }
 
   try {
