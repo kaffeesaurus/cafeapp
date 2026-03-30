@@ -289,13 +289,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
     try {
       window.addEventListener('pageshow', function (e) {
         try {
-          if (e && e.persisted) {
-            location.reload();
-            return;
-          }
           const current = getStoreId();
           if (window.__cloud_sync_store && String(window.__cloud_sync_store) !== String(current)) {
-            location.reload();
+            window.__cloud_sync_store = current;
           }
         } catch (err) {}
       });
