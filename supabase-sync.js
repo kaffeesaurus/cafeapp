@@ -579,40 +579,6 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         }
       }catch(e){}
     })();
-
-    (function(){
-      const tipKey = storeId==='koeln'?'tipData':`${storeId}_tipData`;
-      function parseTips(){ try{ return JSON.parse(localStorage.getItem(tipKey)||'{}'); }catch(e){ return {}; } }
-      function norm(n){ const v=parseFloat(String(n||'').replace(',','.')); return Number.isFinite(v)? v : 0; }
-      async function upsertTip(date, entry){
-        const token=getAccessTokenSync(); if(!token) return;
-        const row={ store_id:storeId, tip_date:date, card_amount:norm(entry.cardTips), cash_amount:norm(entry.cashTips), total_amount:norm(entry.totalTips||norm(entry.cardTips)+norm(entry.cashTips)), meta: entry, updated_at: new Date().toISOString() };
-        await fetch(`${SUPABASE_URL}/rest/v1/tip_totals?on_conflict=store_id,tip_date`,{ method:'POST', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${token}`,'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([row]) }).catch(()=>{});
-      }
-      function mergeTipRows(rows){ if(!Array.isArray(rows)||!rows.length) return false; const tips=parseTips(); let changed=false; for(let i=0;i<rows.length;i++){ const r=rows[i]; const d=r.tip_date; if(!d) continue; const e=tips[d]||{}; const c1=norm(e.cardTips), c2=norm(e.cashTips), c3=norm(e.totalTips); const n1=norm(r.card_amount), n2=norm(r.cash_amount), n3=norm(r.total_amount); if(c1!==n1||c2!==n2||c3!==n3){ tips[d]={ ...(typeof e==='object'?e:{}), cardTips:n1, cashTips:n2, totalTips:n3, timestamp:r.updated_at||new Date().toISOString() }; lastSent.set(d,{card:n1,cash:n2,total:n3}); changed=true; } }
-        if(changed){ try{ localStorage.setItem(tipKey, JSON.stringify(tips)); }catch(e){} }
-        return changed; }
-      let lastTipIso=new Date(0).toISOString();
-      const lastSent=new Map();
-      function scanTips(){
-        const tips=parseTips();
-        Object.keys(tips).forEach(d=>{
-          const e=tips[d]||{};
-          const cur={ card:norm(e.cardTips), cash:norm(e.cashTips), total:norm(e.totalTips||norm(e.cardTips)+norm(e.cashTips)) };
-          const prev=lastSent.get(d);
-          if(!prev || prev.card!==cur.card || prev.cash!==cur.cash || prev.total!==cur.total){
-            lastSent.set(d,cur);
-            Promise.resolve().then(()=>upsertTip(d,e));
-          }
-        });
-      }
-      async function pullTips(){ const token=getAccessTokenSync(); if(!token) return; const q=`/rest/v1/tip_totals?select=store_id,tip_date,card_amount,cash_amount,total_amount,meta,updated_at&store_id=eq.${encodeURIComponent(storeId)}&order=updated_at.asc&updated_at=gt.${encodeURIComponent(lastTipIso)}`; const res=await fetch(SUPABASE_URL+q,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${token}` }, cache:'no-store' }).catch(()=>null); if(!res||!res.ok) return; const rows=await res.json().catch(()=>[]); if(mergeTipRows(rows)){ if(!window.__cloud_reload_timer){ window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },400); } } const last=rows.length? rows[rows.length-1].updated_at : lastTipIso; if(last) lastTipIso=last; }
-      setTimeout(()=>{ pullTips(); scanTips(); },600);
-      setInterval(()=>{ pullTips(); scanTips(); },3000);
-      try{
-        if(window.supabase && window.supabase.createClient){ const token=getAccessTokenSync(); const client=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false}}); if(client && client.realtime && typeof client.realtime.setAuth==='function' && token){ client.realtime.setAuth(token); } const ch=client.channel(`tips_${storeId}`); ch.on('postgres_changes',{event:'*',schema:'public',table:'tip_totals',filter:`store_id=eq.${storeId}`},(payload)=>{ const row=payload.new||payload.old||null; if(!row) return; if(mergeTipRows([row])){ if(!window.__cloud_reload_timer){ window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },250); } } }).subscribe(); }
-      }catch(e){}
-    })();
   }
 
   try {
