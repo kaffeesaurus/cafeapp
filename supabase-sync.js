@@ -420,10 +420,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
               muted = false;
             }
 
+            try { sessionStorage.setItem(flagKey, '1'); } catch (e) {}
             try {
-              sessionStorage.setItem(flagKey, '1');
-            } catch (e) {}
-            location.reload();
+              if(typeof window.displayTodayEntries==='function'){ window.displayTodayEntries(); }
+              window.dispatchEvent(new CustomEvent('cloud:state-applied',{detail:{source:'cloud'}}));
+            } catch (_e) {}
           } catch (e) {}
         });
       }
@@ -532,7 +533,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         }
         return changed;
       }
-      let lastIso=new Date(0).toISOString();
+      let lastIso=(function(){ try{ return sessionStorage.getItem(`shifts_lastIso_${storeId}`)||new Date(0).toISOString(); }catch(e){ return new Date(0).toISOString(); } })();
       const known=new Set(parseWork().map(mkKey));
       async function pull(){
         const token=getAccessTokenSync(); if(!token) return;
@@ -542,11 +543,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         const rows=await res.json().catch(()=>[]);
         if(mergeRows(rows)){
           if(!window.__cloud_reload_timer){
-            window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },500);
+            window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; try{ if(typeof window.displayTodayEntries==='function'){ window.displayTodayEntries(); } window.dispatchEvent(new CustomEvent('cloud:shifts-updated',{detail:{source:'pull'}})); }catch(_e){} },200);
           }
         }
         const last=rows.length? rows[rows.length-1].updated_at : lastIso;
-        if(last) lastIso=last;
+        if(last){ lastIso=last; try{ sessionStorage.setItem(`shifts_lastIso_${storeId}`, lastIso); }catch(_e){} }
       }
       function scan(){
         const list=parseWork();
@@ -572,7 +573,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
             const row=payload.new||payload.old||null; if(!row) return;
             if(mergeRows([row])){
               if(!window.__cloud_reload_timer){
-                window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },300);
+                window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; try{ if(typeof window.displayTodayEntries==='function'){ window.displayTodayEntries(); } window.dispatchEvent(new CustomEvent('cloud:shifts-updated',{detail:{source:'realtime'}})); }catch(_e){} },150);
               }
             }
           }).subscribe();
