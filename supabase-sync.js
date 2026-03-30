@@ -542,7 +542,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
         const rows=await res.json().catch(()=>[]);
         if(mergeRows(rows)){
           if(!window.__cloud_reload_timer){
-            window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; try{ if(typeof window.displayTodayEntries==='function'){ window.displayTodayEntries(); } window.dispatchEvent(new CustomEvent('cloud:shifts-updated',{detail:{source:'pull'}})); }catch(_e){} },200);
+            window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },500);
           }
         }
         const last=rows.length? rows[rows.length-1].updated_at : lastIso;
@@ -572,7 +572,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
             const row=payload.new||payload.old||null; if(!row) return;
             if(mergeRows([row])){
               if(!window.__cloud_reload_timer){
-                window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; try{ if(typeof window.displayTodayEntries==='function'){ window.displayTodayEntries(); } window.dispatchEvent(new CustomEvent('cloud:shifts-updated',{detail:{source:'realtime'}})); }catch(_e){} },150);
+                window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; location.reload(); },300);
               }
             }
           }).subscribe();
