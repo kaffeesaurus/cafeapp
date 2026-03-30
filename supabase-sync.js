@@ -508,7 +508,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
       async function upsertShift(e){
         const token=getAccessTokenSync(); if(!token) return;
         const row={ store_id: storeId, employee_name: String(e.name||e.employee||''), work_date: e.workDate||null, start_time: e.startTime||null, end_time: e.EndTime||e.endTime||null, department: e.department||null, client_key: mkKey(e), updated_at: new Date().toISOString() };
-        await fetch(`${SUPABASE_URL}/rest/v1/shifts?on_conflict=store_id,employee_name,work_date,start_time,end_time`,{ method:'POST', headers:{ apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([row]) }).catch(()=>{});
+        let res=null;
+        try{
+          res=await fetch(`${SUPABASE_URL}/rest/v1/shifts?on_conflict=store_id,employee_name,work_date,start_time,end_time`,{ method:'POST', headers:{ apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${token}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify([row]) });
+        }catch(_e){}
+        if(!res||!res.ok){ try{ const txt=res?await res.text():''; console.error('shifts upsert failed', res&&res.status, txt); }catch(_e){} }
       }
       function mergeRows(rows){
         if(!Array.isArray(rows)||!rows.length) return false;
@@ -572,7 +576,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
                 window.__cloud_reload_timer=setTimeout(()=>{ window.__cloud_reload_timer=null; try{ if(typeof window.displayTodayEntries==='function'){ window.displayTodayEntries(); } window.dispatchEvent(new CustomEvent('cloud:shifts-updated',{detail:{source:'realtime'}})); }catch(_e){} },150);
               }
             }
-          }).subscribe();
+          }).subscribe((status)=>{ try{ if(status==='SUBSCRIBED'){ window.dispatchEvent(new CustomEvent('cloud:realtime-ready',{detail:{table:'shifts'}})); } }catch(_e){} });
         }
       }catch(e){}
     })();
