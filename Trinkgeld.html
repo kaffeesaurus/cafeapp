@@ -1361,8 +1361,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
-    <script src="supabase-sync.js?v=6"></script>
     <script>
         (function(){
             function getStoreFromURL(){
@@ -1370,7 +1368,7 @@
                     const params=new URLSearchParams(location.search);
                     let s=params.get('store');
                     if(!s && location.hash){
-                        const m=location.hash.match(/store=([a-z0-9_-]+)/i) || location.hash.match(/^#([a-z0-9_-]+)/i);
+                        const m=location.hash.match(/store=([a-z]+)/i) || location.hash.match(/^#([a-z]+)/i);
                         if(m) s=m[1];
                     }
                     s = s ? s.toLowerCase() : null;
@@ -1420,26 +1418,19 @@
             window.__store_id = STORE;
             window.__store_hasUrl = !!urlStore;
             window.__store_hadStored = hadStored;
-            try{
-                window.addEventListener('pageshow', function(e){
-                    try{
-                        if(e && e.persisted){ location.reload(); }
-                    }catch(err){}
-                });
-            }catch(e){}
         })();
         (function(){
-            var s=String(window.__store_id || 'koeln').toLowerCase();
+            var s=(localStorage.getItem('current_store')||'koeln').toLowerCase();
             var has=localStorage.getItem(s+'_gate_hash');
             var ok=sessionStorage.getItem('gate_unlocked_'+s)==='1';
             if(has && !ok){
-                var q='hub.html?store='+encodeURIComponent(s)+'&resume=trinkgeld';
+                var q='hub.html?store='+encodeURIComponent(s);
                 location.replace(q);
             }
         })();
         document.addEventListener('DOMContentLoaded', function(){
             var hubLink = document.querySelector('.header a');
-            if(hubLink){ hubLink.setAttribute('href', 'hub.html?store=' + encodeURIComponent(String(window.__store_id || 'koeln').toLowerCase())); }
+            if(hubLink){ hubLink.setAttribute('href', 'hub.html'); }
             var storeSelect = document.getElementById('storeSelect');
             if(storeSelect){
                 var s = (sessionStorage.getItem('current_store') || localStorage.getItem('current_store') || 'koeln').toLowerCase();

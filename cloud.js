@@ -1,11 +1,5 @@
-(function () {
-const SUPABASE_CFG={
-  koeln:{url:'https://nnssdqtoemwdjaikusyb.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc'},
-  bonn:{url:'https://fxbwosgfgwvhpcsyjgvr.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I'}
-};
-const __cur=(function(){try{return String(getStoreId()||'koeln').toLowerCase();}catch(e){return'koeln';}})();
-const SUPABASE_URL=(SUPABASE_CFG[__cur]||SUPABASE_CFG.koeln).url;
-const SUPABASE_ANON_KEY=(SUPABASE_CFG[__cur]||SUPABASE_CFG.koeln).anon;
+const SUPABASE_URL = 'https://nnssdqtoemwdjaikusyb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc';
 
 function getStoreId() {
   try {
@@ -24,11 +18,7 @@ function nowSeconds() {
 
 function loadSession() {
   try {
-    let raw = null;
-    try {
-      raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    } catch (e) {}
-    if (!raw) raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || typeof s !== 'object') return null;
@@ -41,17 +31,10 @@ function loadSession() {
 function saveSession(session) {
   try {
     if (!session) {
-      try {
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      } catch (e) {}
       localStorage.removeItem(SESSION_STORAGE_KEY);
       return;
     }
-    const raw = JSON.stringify(session);
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, raw);
-    } catch (e) {}
-    localStorage.setItem(SESSION_STORAGE_KEY, raw);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch (e) {}
 }
 
@@ -303,16 +286,19 @@ async function refreshCloudUI() {
     session = await getSession();
   } catch (e) {}
   const isLoggedIn = !!session;
-  const host=(function(){try{return new URL(SUPABASE_URL).host;}catch(e){return SUPABASE_URL;}})();
-  setText('cloudStatus', isLoggedIn ? `Angemeldet: ${getSessionUserEmail(session)} (Projekt: ${host})` : `Nicht angemeldet (Projekt: ${host})`);
+  setText('cloudStatus', isLoggedIn ? `Angemeldet: ${getSessionUserEmail(session)}` : 'Nicht angemeldet');
   setVisible('cloudLoginRow', !isLoggedIn);
   setVisible('cloudLoggedInRow', isLoggedIn);
-  setVisible('cloudActionsRow', false);
+  setVisible('cloudActionsRow', isLoggedIn);
 }
 
 function bindCloudUI() {
   const loginBtn = document.getElementById('cloudLoginBtn');
   const logoutBtn = document.getElementById('cloudLogoutBtn');
+  const uploadStoreBtn = document.getElementById('cloudUploadStoreBtn');
+  const downloadStoreBtn = document.getElementById('cloudDownloadStoreBtn');
+  const uploadAllBtn = document.getElementById('cloudUploadAllBtn');
+  const downloadAllBtn = document.getElementById('cloudDownloadAllBtn');
   const errEl = document.getElementById('cloudError');
   const okEl = document.getElementById('cloudOk');
 
@@ -338,12 +324,8 @@ function bindCloudUI() {
         return;
       }
       try {
-        const storeId = getStoreId();
-        console.log('Hub login target', { storeId, url: SUPABASE_URL });
         await signIn(email, password);
-        await downloadStore(storeId);
-        const host=(function(){try{return new URL(SUPABASE_URL).host;}catch(e){return SUPABASE_URL;}})();
-        setOk(`Angemeldet. Cloud-Daten geladen: ${storeId}. Projekt: ${host}`);
+        setOk('Angemeldet.');
         await refreshCloudUI();
       } catch (e) {
         setErr(e && e.message ? e.message : 'Anmeldung fehlgeschlagen.');
@@ -364,6 +346,62 @@ function bindCloudUI() {
       }
     });
   }
+
+  if (uploadStoreBtn) {
+    uploadStoreBtn.addEventListener('click', async () => {
+      setErr('');
+      setOk('');
+      try {
+        const storeId = getStoreId();
+        if (!confirm(`Cloud-Daten für "${storeId}" werden komplett durch lokale Daten ersetzt. Fortfahren?`)) return;
+        await uploadStore(storeId);
+        setOk(`Cloud ersetzt: ${storeId}.`);
+      } catch (e) {
+        setErr(e && e.message ? e.message : 'Upload fehlgeschlagen.');
+      }
+    });
+  }
+
+  if (downloadStoreBtn) {
+    downloadStoreBtn.addEventListener('click', async () => {
+      setErr('');
+      setOk('');
+      try {
+        const storeId = getStoreId();
+        const found = await downloadStore(storeId);
+        setOk(found ? `Geladen: ${storeId}.` : `Keine Cloud-Daten für ${storeId} gefunden.`);
+      } catch (e) {
+        setErr(e && e.message ? e.message : 'Download fehlgeschlagen.');
+      }
+    });
+  }
+
+  if (uploadAllBtn) {
+    uploadAllBtn.addEventListener('click', async () => {
+      setErr('');
+      setOk('');
+      try {
+        if (!confirm('Cloud-Daten werden komplett durch lokale Daten ersetzt (nur wo lokale Daten vorhanden sind). Fortfahren?')) return;
+        await uploadAllStores();
+        setOk('Cloud ersetzt: Köln und Bonn.');
+      } catch (e) {
+        setErr(e && e.message ? e.message : 'Upload fehlgeschlagen.');
+      }
+    });
+  }
+
+  if (downloadAllBtn) {
+    downloadAllBtn.addEventListener('click', async () => {
+      setErr('');
+      setOk('');
+      try {
+        await downloadAllStores();
+        setOk('Geladen: Köln und Bonn.');
+      } catch (e) {
+        setErr(e && e.message ? e.message : 'Download fehlgeschlagen.');
+      }
+    });
+  }
 }
 
 window.cloud = {
@@ -381,4 +419,3 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindCloudUI();
   await refreshCloudUI();
 });
-})();

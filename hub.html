@@ -161,13 +161,18 @@
       <div class="row" id="cloudLoggedInRow" style="display:none;margin-top:10px">
         <button class="btn secondary" id="cloudLogoutBtn">Abmelden</button>
       </div>
+      <div class="row" id="cloudActionsRow" style="display:none;margin-top:10px">
+        <button class="btn ok" id="cloudUploadStoreBtn">⬆️ Aktuellen Standort hochladen</button>
+        <button class="btn" id="cloudDownloadStoreBtn">⬇️ Aktuellen Standort laden</button>
+        <button class="btn ok" id="cloudUploadAllBtn">⬆️ Köln+Bonn hochladen</button>
+        <button class="btn" id="cloudDownloadAllBtn">⬇️ Köln+Bonn laden</button>
+      </div>
       <div class="msg err" id="cloudError"></div>
       <div class="msg ok" id="cloudOk"></div>
-      <div class="small">Nach Anmeldung lädt die App automatisch die Cloud-Daten und speichert Änderungen automatisch.</div>
+      <div class="small">Manuell synchronisieren: pro Standort ⬆️ Aktuellen Standort hochladen. Auf neuen Geräten ⬇️ Aktuellen Standort laden.</div>
     </div>
   </div>
 
-  <script src="supabase-sync.js?v=6"></script>
   <script>
     (function(){
       function getStoreFromURL(){
@@ -260,12 +265,6 @@
     }
 
     function getStoreId(){
-      try{
-        var params=new URLSearchParams(location.search);
-        var u=params.get('store');
-        u=u? String(u).toLowerCase(): null;
-        if(u && /^[a-z0-9_-]+$/.test(u)) return u;
-      }catch(e){}
       var s=null;
       try{s=sessionStorage.getItem('current_store') || localStorage.getItem('current_store');}catch(e){}
       return String(window.__store_id || s || 'koeln').toLowerCase();
@@ -488,7 +487,7 @@
 
     function openApp(file){
       var storeId=getStoreId();
-      var url=file + '?store=' + encodeURIComponent(storeId) + '&nav=' + Date.now();
+      var url=file + '?store=' + encodeURIComponent(storeId);
       if(String(file||'').toLowerCase()==='trinkgeld.html'){
         var stored=getGateStoredValue(storeId);
         if(stored && !isAdminUnlocked(storeId)){
@@ -623,6 +622,6 @@
       }
     });
   </script>
-  <script src="cloud.js?v=7"></script>
+  <script src="cloud.js?v=4"></script>
 </body>
 </html>
