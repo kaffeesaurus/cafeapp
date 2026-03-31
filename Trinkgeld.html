@@ -962,11 +962,6 @@
                     </p>
                     <button class="btn" onclick="backupData()">💾 Daten Sichern</button>
                     <button class="btn" onclick="restoreData()">📂 Daten Wiederherstellen</button>
-                    <span id="currentStoreLabel" style="margin-left:8px;color:#3498db;font-weight:600;">Standort: <span id="currentStoreName"></span></span>
-                    <div style="margin-top:10px">
-                        <button class="btn" onclick="uploadBackupToSupabaseFor('koeln')">📤 Köln-Backup zu Supabase</button>
-                        <button class="btn" onclick="uploadBackupToSupabaseFor('bonn')">📤 Bonn-Backup zu Supabase</button>
-                    </div>
                     <p style="margin-top: 15px; color: #666; font-size: 14px;">
                         <strong>Hinweis:</strong> Das Backup enthält alle Arbeitszeiten, Trinkgeldberechnungen, Mitarbeiterdaten, gespeicherte Daten und Einstellungen.
                     </p>
@@ -1366,8 +1361,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         (function(){
             function getStoreFromURL(){
@@ -1419,17 +1412,9 @@
                 if(SHARED_PREFIX_KEYS.has(k)) return STORE==='koeln'? k : (STORE+'_'+k);
                 return k;
             }
-            const sbKoeln = (window.supabase && window.supabase.createClient) ? window.supabase.createClient('https://mddtxuweodnupdscmuoh.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZHR4dXdlb2RudXBkc2NtdW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTEzODIsImV4cCI6MjA5MDQ4NzM4Mn0.i-bUlQD3lZ0ut4WOva_mDCCRcVMY_dLHbzjm5Gw7cq0') : null;
-            const sbBonn = (window.supabase && window.supabase.createClient) ? window.supabase.createClient('https://fxbwosgfgwvhpcsyjgvr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I') : null;
-            function getSB(){ return STORE==='bonn'?sbBonn:sbKoeln; }
-            const KV = Object.create(null);
-            async function supaUpsert(k,v){ try{ const s=getSB(); if(!s) return; await s.from('app_kv').upsert({key:k,value:v,updated_at:new Date().toISOString()}); }catch(e){} }
-            async function supaDelete(k){ try{ const s=getSB(); if(!s) return; await s.from('app_kv').delete().eq('key',k); }catch(e){} }
-            async function supaHydrate(){ try{ const s=getSB(); if(!s) return; const {data}=await s.from('app_kv').select('key,value'); if(Array.isArray(data)){ data.forEach(r=>{ KV[r.key]=r.value; }); } }catch(e){} }
-            supaHydrate();
-            localStorage.getItem=function(k){ const mk=mapKey(k); return KV.hasOwnProperty(mk)? KV[mk] : null; };
-            localStorage.setItem=function(k,v){ const mk=mapKey(k); KV[mk]=v; supaUpsert(mk, v); return undefined; };
-            localStorage.removeItem=function(k){ const mk=mapKey(k); delete KV[mk]; supaDelete(mk); return undefined; };
+            localStorage.getItem=function(k){ return origGet(mapKey(k)); };
+            localStorage.setItem=function(k,v){ return origSet(mapKey(k), v); };
+            localStorage.removeItem=function(k){ return origRem(mapKey(k)); };
             window.__store_id = STORE;
             window.__store_hasUrl = !!urlStore;
             window.__store_hadStored = hadStored;
@@ -1459,8 +1444,6 @@
                     var path = location.pathname.split('/').pop() || 'Trinkgeld.html';
                     location.href = path + '?store=' + encodeURIComponent(v);
                 };
-                var lbl = document.getElementById('currentStoreName');
-                if(lbl){ lbl.textContent = ((window.__store_id||'koeln')==='bonn') ? 'Bonn' : 'Köln'; }
             }
             var overlay = document.getElementById('storeGateOverlay');
             if(overlay){
@@ -10641,38 +10624,6 @@
             };
             input.click();
         }
-        
-        async function uploadBackupToSupabaseFor(target){
-            const input=document.createElement('input');
-            input.type='file';
-            input.accept='.json';
-            input.onchange=function(ev){
-                const file=ev.target.files[0];
-                if(!file) return;
-                const r=new FileReader();
-                r.onload=async function(e){
-                    try{
-                        const data=JSON.parse(e.target.result);
-                        const store=(String(target||'koeln')).toLowerCase();
-                        const url=store==='bonn'?'https://fxbwosgfgwvhpcsyjgvr.supabase.co':'https://mddtxuweodnupdscmuoh.supabase.co';
-                        const key=store==='bonn'?'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZHR4dXdlb2RudXBkc2NtdW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTEzODIsImV4cCI6MjA5MDQ4NzM4Mn0.i-bUlQD3lZ0ut4WOva_mDCCRcVMY_dLHbzjm5Gw7cq0';
-                        if(!window.supabase||!window.supabase.createClient){ alert('Supabase nicht geladen'); return; }
-                        const sb=window.supabase.createClient(url,key);
-                        const pairs=[];
-                        if(data.employees) pairs.push([(store==='bonn'?'bonn_employees':'koeln_employees'), JSON.stringify(data.employees)]);
-                        ['workEntries','dailyCalculations','tipData','tipPaymentPeriods','tipProcedurePeriods','kitchenProcedureSettings','spuelerProcedureSettings','punctualityPeriods','lockedTips','departments'].forEach(k=>{ if(data[k]!==undefined) pairs.push([(store==='bonn'?(store+'_'+k):k), JSON.stringify(data[k])]); });
-                        if(data.punctualityEnabled!==undefined) pairs.push([(store==='bonn'?(store+'_punctuality_enabled'):'punctuality_enabled'), data.punctualityEnabled?'true':'false']);
-                        if(data.personalTipsTimeout!==undefined){ const v=Math.round(parseFloat(data.personalTipsTimeout)||0).toString(); pairs.push([(store==='bonn'?'bonn_personalTipsTimeout':'koeln_personalTipsTimeout'), v]); }
-                        for(const [k,v] of pairs){ await sb.from('app_kv').upsert({key:k,value:v,updated_at:new Date().toISOString()}); }
-                        if(typeof showMessage==='function') showMessage('Backup in Supabase hochgeladen','success');
-                        if(typeof supaHydrate==='function') supaHydrate();
-                    }catch(err){ alert('Fehler beim Hochladen'); }
-                };
-                r.readAsText(file);
-            };
-            input.click();
-        }
-        function uploadBackupToSupabase(){ return uploadBackupToSupabaseFor(window.__store_id||localStorage.getItem('current_store')||'koeln'); }
         
         function checkEmployeeNumberConflict(employeeNumber, employeeName) {
             // Check if this employee number is used by a different person
