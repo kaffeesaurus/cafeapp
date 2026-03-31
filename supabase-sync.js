@@ -1,5 +1,10 @@
-const SUPABASE_URL = 'https://nnssdqtoemwdjaikusyb.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc';
+const SUPABASE_CFG={
+  koeln:{url:'https://nnssdqtoemwdjaikusyb.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc'},
+  bonn:{url:'https://fxbwosgfgwvhpcsyjgvr.supabase.co',anon:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I'}
+};
+function __getStore(){try{const s=(sessionStorage.getItem('current_store')||localStorage.getItem('current_store')||'koeln');return String(s||'koeln').toLowerCase();}catch(e){return 'koeln';}}
+const SUPABASE_URL=(SUPABASE_CFG[__getStore()]||SUPABASE_CFG.koeln).url;
+const SUPABASE_ANON_KEY=(SUPABASE_CFG[__getStore()]||SUPABASE_CFG.koeln).anon;
 
 (function () {
   const SESSION_STORAGE_KEY = 'cloud_supabase_session_v1';
