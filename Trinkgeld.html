@@ -962,7 +962,11 @@
                     </p>
                     <button class="btn" onclick="backupData()">💾 Daten Sichern</button>
                     <button class="btn" onclick="restoreData()">📂 Daten Wiederherstellen</button>
-                    <button class="btn" onclick="uploadBackupToSupabase()">📤 Backup nach Supabase hochladen</button>
+                    <span id="currentStoreLabel" style="margin-left:8px;color:#3498db;font-weight:600;">Standort: <span id="currentStoreName"></span></span>
+                    <div style="margin-top:10px">
+                        <button class="btn" onclick="uploadBackupToSupabaseFor('koeln')">📤 Köln-Backup zu Supabase</button>
+                        <button class="btn" onclick="uploadBackupToSupabaseFor('bonn')">📤 Bonn-Backup zu Supabase</button>
+                    </div>
                     <p style="margin-top: 15px; color: #666; font-size: 14px;">
                         <strong>Hinweis:</strong> Das Backup enthält alle Arbeitszeiten, Trinkgeldberechnungen, Mitarbeiterdaten, gespeicherte Daten und Einstellungen.
                     </p>
@@ -1455,6 +1459,8 @@
                     var path = location.pathname.split('/').pop() || 'Trinkgeld.html';
                     location.href = path + '?store=' + encodeURIComponent(v);
                 };
+                var lbl = document.getElementById('currentStoreName');
+                if(lbl){ lbl.textContent = ((window.__store_id||'koeln')==='bonn') ? 'Bonn' : 'Köln'; }
             }
             var overlay = document.getElementById('storeGateOverlay');
             if(overlay){
@@ -10636,7 +10642,7 @@
             input.click();
         }
         
-        async function uploadBackupToSupabase(){
+        async function uploadBackupToSupabaseFor(target){
             const input=document.createElement('input');
             input.type='file';
             input.accept='.json';
@@ -10647,7 +10653,7 @@
                 r.onload=async function(e){
                     try{
                         const data=JSON.parse(e.target.result);
-                        const store=(window.__store_id||localStorage.getItem('current_store')||'koeln').toLowerCase();
+                        const store=(String(target||'koeln')).toLowerCase();
                         const url=store==='bonn'?'https://fxbwosgfgwvhpcsyjgvr.supabase.co':'https://mddtxuweodnupdscmuoh.supabase.co';
                         const key=store==='bonn'?'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I':'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZHR4dXdlb2RudXBkc2NtdW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTEzODIsImV4cCI6MjA5MDQ4NzM4Mn0.i-bUlQD3lZ0ut4WOva_mDCCRcVMY_dLHbzjm5Gw7cq0';
                         if(!window.supabase||!window.supabase.createClient){ alert('Supabase nicht geladen'); return; }
@@ -10666,6 +10672,7 @@
             };
             input.click();
         }
+        function uploadBackupToSupabase(){ return uploadBackupToSupabaseFor(window.__store_id||localStorage.getItem('current_store')||'koeln'); }
         
         function checkEmployeeNumberConflict(employeeNumber, employeeName) {
             // Check if this employee number is used by a different person
