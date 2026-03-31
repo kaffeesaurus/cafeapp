@@ -485,9 +485,13 @@
       if(modal){modal.classList.remove('open'); modal.setAttribute('aria-hidden','true');}
     }
 
-    function openApp(file){
+    async function openApp(file){
       var storeId=getStoreId();
       var url=file + '?store=' + encodeURIComponent(storeId);
+      try{
+        var sess = await (window.cloud && window.cloud.getSession ? window.cloud.getSession(storeId) : null);
+        if(!sess){ alert('Bitte zuerst im Cloud-Speicher für '+storeId+' anmelden.'); return; }
+      }catch(e){ alert('Bitte zuerst im Cloud-Speicher anmelden.'); return; }
       if(String(file||'').toLowerCase()==='trinkgeld.html'){
         var stored=getGateStoredValue(storeId);
         if(stored && !isAdminUnlocked(storeId)){
