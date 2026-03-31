@@ -1,8 +1,5 @@
-const PROJECTS = {
-  koeln: { url: 'https://mddtxuweodnupdscmuoh.supabase.co', anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZHR4dXdlb2RudXBkc2NtdW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTEzODIsImV4cCI6MjA5MDQ4NzM4Mn0.i-bUlQD3lZ0ut4WOva_mDCCRcVMY_dLHbzjm5Gw7cq0' },
-  bonn: { url: 'https://fxbwosgfgwvhpcsyjgvr.supabase.co', anon: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I' }
-};
-function getProject(storeId){ const s=String(storeId||getStoreId()).toLowerCase(); return PROJECTS[s]||PROJECTS.koeln; }
+const SUPABASE_URL = 'https://nnssdqtoemwdjaikusyb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uc3NkcXRvZW13ZGphaWt1c3liIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTU0MDQsImV4cCI6MjA4OTYzMTQwNH0.Oqq_NfJVYz1woaF0cgKi85H40KVWg6qkZGi2jFQG6Pc';
 
 function getStoreId() {
   try {
@@ -13,15 +10,15 @@ function getStoreId() {
   }
 }
 
-function sessionKeyFor(storeId){ return 'cloud_supabase_session_v1_' + String(storeId||getStoreId()).toLowerCase(); }
+const SESSION_STORAGE_KEY = 'cloud_supabase_session_v1';
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
 }
 
-function loadSession(storeId) {
+function loadSession() {
   try {
-    const raw = localStorage.getItem(sessionKeyFor(storeId));
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || typeof s !== 'object') return null;
@@ -31,14 +28,13 @@ function loadSession(storeId) {
   }
 }
 
-function saveSession(session, storeId) {
+function saveSession(session) {
   try {
-    const key = sessionKeyFor(storeId);
     if (!session) {
-      localStorage.removeItem(key);
+      localStorage.removeItem(SESSION_STORAGE_KEY);
       return;
     }
-    localStorage.setItem(key, JSON.stringify(session));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch (e) {}
 }
 
@@ -49,12 +45,11 @@ function getSessionUserEmail(session) {
   return '';
 }
 
-async function supabaseAuthRequest(pathWithQuery, bodyObj, storeId) {
-  const proj = getProject(storeId);
-  const res = await fetch(`${proj.url}${pathWithQuery}`, {
+async function supabaseAuthRequest(pathWithQuery, bodyObj) {
+  const res = await fetch(`${SUPABASE_URL}${pathWithQuery}`, {
     method: 'POST',
     headers: {
-      apikey: proj.anon,
+      apikey: SUPABASE_ANON_KEY,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(bodyObj || {})
@@ -89,16 +84,14 @@ async function refreshIfNeeded(session) {
   return next;
 }
 
-async function getSession(storeId) {
-  const sId = String(storeId||getStoreId()).toLowerCase();
-  const session = loadSession(sId);
+async function getSession() {
+  const session = loadSession();
   if (!session) return null;
   return await refreshIfNeeded(session);
 }
 
-async function signIn(email, password, storeId) {
-  const sId = String(storeId||getStoreId()).toLowerCase();
-  const data = await supabaseAuthRequest('/auth/v1/token?grant_type=password', { email, password }, sId);
+async function signIn(email, password) {
+  const data = await supabaseAuthRequest('/auth/v1/token?grant_type=password', { email, password });
   const session = {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
@@ -107,27 +100,39 @@ async function signIn(email, password, storeId) {
     expires_at: nowSeconds() + (data.expires_in || 0),
     user: data.user
   };
-  saveSession(session, sId);
+  saveSession(session);
   return session;
 }
 
-async function signOut(storeId) {
-  saveSession(null, storeId||getStoreId());
+async function signOut() {
+  saveSession(null);
 }
 
-async function restRequest(method, pathWithQuery, accessToken, bodyObj, storeId) {
-  const proj = getProject(storeId);
-  const headers = { apikey: proj.anon };
+async function restRequest(method, pathWithQuery, accessToken, bodyObj) {
+  const headers = {
+    apikey: SUPABASE_ANON_KEY
+  };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (bodyObj !== undefined) headers['Content-Type'] = 'application/json';
-  if (method !== 'GET') headers.Prefer = 'return=minimal';
-  const res = await fetch(`${proj.url}${pathWithQuery}`, { method, headers, body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined });
+  if (method !== 'GET') {
+    headers.Prefer = 'return=minimal';
+  }
+
+  const res = await fetch(`${SUPABASE_URL}${pathWithQuery}`, {
+    method,
+    headers,
+    body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined
+  });
+
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     const msg = data && (data.message || data.error || data.hint) ? (data.message || data.error || data.hint) : `HTTP ${res.status}`;
     throw new Error(msg);
   }
-  if (method === 'GET') return await res.json().catch(() => null);
+
+  if (method === 'GET') {
+    return await res.json().catch(() => null);
+  }
   return null;
 }
 
