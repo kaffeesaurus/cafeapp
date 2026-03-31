@@ -303,7 +303,8 @@ async function refreshCloudUI() {
     session = await getSession();
   } catch (e) {}
   const isLoggedIn = !!session;
-  setText('cloudStatus', isLoggedIn ? `Angemeldet: ${getSessionUserEmail(session)}` : 'Nicht angemeldet');
+  const host=(function(){try{return new URL(SUPABASE_URL).host;}catch(e){return SUPABASE_URL;}})();
+  setText('cloudStatus', isLoggedIn ? `Angemeldet: ${getSessionUserEmail(session)} (Projekt: ${host})` : `Nicht angemeldet (Projekt: ${host})`);
   setVisible('cloudLoginRow', !isLoggedIn);
   setVisible('cloudLoggedInRow', isLoggedIn);
   setVisible('cloudActionsRow', false);
@@ -337,10 +338,12 @@ function bindCloudUI() {
         return;
       }
       try {
-        await signIn(email, password);
         const storeId = getStoreId();
+        console.log('Hub login target', { storeId, url: SUPABASE_URL });
+        await signIn(email, password);
         await downloadStore(storeId);
-        setOk(`Angemeldet. Cloud-Daten geladen: ${storeId}.`);
+        const host=(function(){try{return new URL(SUPABASE_URL).host;}catch(e){return SUPABASE_URL;}})();
+        setOk(`Angemeldet. Cloud-Daten geladen: ${storeId}. Projekt: ${host}`);
         await refreshCloudUI();
       } catch (e) {
         setErr(e && e.message ? e.message : 'Anmeldung fehlgeschlagen.');
