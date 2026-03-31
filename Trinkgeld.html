@@ -1422,14 +1422,14 @@
             const sbKoeln = (window.supabase && window.supabase.createClient) ? window.supabase.createClient('https://mddtxuweodnupdscmuoh.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1kZHR4dXdlb2RudXBkc2NtdW9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTEzODIsImV4cCI6MjA5MDQ4NzM4Mn0.i-bUlQD3lZ0ut4WOva_mDCCRcVMY_dLHbzjm5Gw7cq0') : null;
             const sbBonn = (window.supabase && window.supabase.createClient) ? window.supabase.createClient('https://fxbwosgfgwvhpcsyjgvr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4Yndvc2dmZ3d2aHBjc3lqZ3ZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MTA0NDUsImV4cCI6MjA5MDQ4NjQ0NX0.QjaNB-YxkjbTl8cUt7O0tNsX-o_uv979ONtdeYgOy6I') : null;
             function getSB(){ return STORE==='bonn'?sbBonn:sbKoeln; }
+            const KV = Object.create(null);
             async function supaUpsert(k,v){ try{ const s=getSB(); if(!s) return; await s.from('app_kv').upsert({key:k,value:v,updated_at:new Date().toISOString()}); }catch(e){} }
-            async function supaHydrate(){ try{ const s=getSB(); if(!s) return; const {data}=await s.from('app_kv').select('key,value'); if(Array.isArray(data)){ data.forEach(r=>{ try{origSet(r.key,r.value);}catch(e){} }); } }catch(e){} }
-            function supaInitialPush(){ try{ const keys=[...SHARED_PREFIX_KEYS,'koeln_employees']; keys.forEach(k=>{ const mk=mapKey(k); const v=origGet(mk); if(v!=null) supaUpsert(mk,v); }); Object.keys(localStorage).forEach(k=>{ if(k.indexOf(STORE+'_')===0){ const v=origGet(k); if(v!=null) supaUpsert(k,v); } }); }catch(e){} }
+            async function supaDelete(k){ try{ const s=getSB(); if(!s) return; await s.from('app_kv').delete().eq('key',k); }catch(e){} }
+            async function supaHydrate(){ try{ const s=getSB(); if(!s) return; const {data}=await s.from('app_kv').select('key,value'); if(Array.isArray(data)){ data.forEach(r=>{ KV[r.key]=r.value; }); } }catch(e){} }
             supaHydrate();
-            supaInitialPush();
-            localStorage.getItem=function(k){ return origGet(mapKey(k)); };
-            localStorage.setItem=function(k,v){ const mk=mapKey(k); const r=origSet(mk, v); supaUpsert(mk, v); return r; };
-            localStorage.removeItem=function(k){ return origRem(mapKey(k)); };
+            localStorage.getItem=function(k){ const mk=mapKey(k); return KV.hasOwnProperty(mk)? KV[mk] : null; };
+            localStorage.setItem=function(k,v){ const mk=mapKey(k); KV[mk]=v; supaUpsert(mk, v); return undefined; };
+            localStorage.removeItem=function(k){ const mk=mapKey(k); delete KV[mk]; supaDelete(mk); return undefined; };
             window.__store_id = STORE;
             window.__store_hasUrl = !!urlStore;
             window.__store_hadStored = hadStored;
